@@ -1,0 +1,32 @@
+name: Update Plex Beta Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_prefix:
+        description: "Optional prefix for the Git tag (leave blank for exact version)"
+        required: false
+        default: "v"
+
+permissions:
+  contents: write
+
+jobs:
+  update-plex:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Update Plex release metadata, commit, and tag
+        env:
+          PLEX_TOKEN: ${{ secrets.PLEX_TOKEN }}
+          TAG_PREFIX: ${{ inputs.tag_prefix }}
+        run: ./scripts/update-plex-release.sh
+
