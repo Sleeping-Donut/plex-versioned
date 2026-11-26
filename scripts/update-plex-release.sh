@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RELEASE_FILE="${RELEASE_FILE:-plex-release.json}"
-API_URL="${API_URL:-https://plex.tv/api/downloads/5.json?channel=public}"
+API_URL="${API_URL:-https://plex.tv/api/downloads/5.json?channel=plexpass}"
 TAG_PREFIX="${TAG_PREFIX:-}"
 
 if [ -z "${PLEX_TOKEN:-}" ]; then
