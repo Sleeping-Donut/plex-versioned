@@ -18,11 +18,10 @@ for cmd in curl jq nix nix-prefetch-url git; do
 done
 
 if [ ! -f "$RELEASE_FILE" ]; then
-  echo "Error: Release metadata file '$RELEASE_FILE' not found." >&2
-  exit 1
+  printf '{"version":"","systems":{}}\n' > "$RELEASE_FILE"
 fi
 
-CURRENT_VERSION=$(jq -r '.version' "$RELEASE_FILE")
+CURRENT_VERSION=$(jq -r '.version // ""' "$RELEASE_FILE")
 
 API_JSON=$(curl -fsSL \
   -H "X-Plex-Token: ${PLEX_TOKEN}" \
@@ -32,11 +31,11 @@ API_JSON=$(curl -fsSL \
 LATEST_VERSION=$(printf '%s' "$API_JSON" | jq -r '.computer.Linux.version // empty')
 
 if [ -z "$LATEST_VERSION" ]; then
-  echo "Error: Could not read .computer.Linux.version from Plex API response. Check PLEX_TOKEN and Plex Pass status." >&2
+  echo "Error: Could not read .computer.Linux.version from Plex API response." >&2
   exit 1
 fi
 
-echo "Current version: $CURRENT_VERSION"
+echo "Current version: ${CURRENT_VERSION:-<none>}"
 echo "Latest Plex Pass version: $LATEST_VERSION"
 
 if [ "$LATEST_VERSION" = "$CURRENT_VERSION" ]; then
@@ -44,51 +43,83 @@ if [ "$LATEST_VERSION" = "$CURRENT_VERSION" ]; then
   exit 0
 fi
 
-AMD64_URL=$(printf '%s' "$API_JSON" | jq -r '
-  .computer.Linux.releases[]
-  | select(.distro == "debian" and .build == "linux-x86_64")
-  | .url
-' | head -n1)
+find_deb_url() {
+  local build_name="$1"
+  printf '%s' "$API_JSON" | jq -r --arg build "$build_name" '
+    [
+      .computer.Linux.releases[]
+      | select(.distro == "debian" and .build == $build)
+      | .url
+    ][0] // empty
+  '
+}
 
-ARM64_URL=$(printf '%s' "$API_JSON" | jq -r '
-  .computer.Linux.releases[]
-  | select(.distro == "debian" and .build == "linux-aarch_64")
-  | .url
-' | head -n1)
+prefetch_sri_hash() {
+  local pkg_url="$1"
+  local raw_hash
+  raw_hash=$(nix-prefetch-url --type sha256 "$pkg_url")
+  nix hash convert --hash-algo sha256 --to sri "$raw_hash"
+}
 
-if [ -z "$AMD64_URL" ] || [ -z "$ARM64_URL" ]; then
-  echo "Error: Could not resolve Debian amd64 or arm64 URL from API response." >&2
+AMD64_URL=$(find_deb_url "linux-x86_64")
+ARM64_URL=$(find_deb_url "linux-aarch64")
+
+if [ -z "$AMD64_URL" ]; then
+  echo "Error: Could not resolve Debian linux-x86_64 URL." >&2
   exit 1
 fi
 
-echo "Prefetching x86_64-linux package..."
-AMD64_RAW_HASH=$(nix-prefetch-url --type sha256 "$AMD64_URL")
-AMD64_SRI_HASH=$(nix hash convert --hash-algo sha256 --to sri "$AMD64_RAW_HASH")
+if [ -z "$ARM64_URL" ]; then
+  echo "Error: Could not resolve Debian linux-aarch64 URL." >&2
+  exit 1
+fi
 
-echo "Prefetching aarch64-linux package..."
-ARM64_RAW_HASH=$(nix-prefetch-url --type sha256 "$ARM64_URL")
-ARM64_SRI_HASH=$(nix hash convert --hash-algo sha256 --to sri "$ARM64_RAW_HASH")
+echo "Prefetching x86_64-linux..."
+AMD64_HASH=$(prefetch_sri_hash "$AMD64_URL")
+
+echo "Prefetching aarch64-linux..."
+ARM64_HASH=$(prefetch_sri_hash "$ARM64_URL")
+
+SYSTEMS_JSON=$(jq -n \
+  --arg amd_url "$AMD64_URL" \
+  --arg amd_hash "$AMD64_HASH" \
+  --arg arm_url "$ARM64_URL" \
+  --arg arm_hash "$ARM64_HASH" \
+  '{
+    "x86_64-linux": { "url": $amd_url, "hash": $amd_hash },
+    "aarch64-linux": { "url": $arm_url, "hash": $arm_hash }
+  }')
+
+for spec in "armv7l-linux:linux-armv7neon" "i686-linux:linux-x86"; do
+  nix_sys="${spec%%:*}"
+  plex_build="${spec#*:}"
+  pkg_url=$(find_deb_url "$plex_build")
+  if [ -n "$pkg_url" ]; then
+    echo "Prefetching ${nix_sys} (${plex_build})..."
+    pkg_hash=$(prefetch_sri_hash "$pkg_url")
+    SYSTEMS_JSON=$(printf '%s' "$SYSTEMS_JSON" | jq \
+      --arg sys "$nix_sys" \
+      --arg url "$pkg_url" \
+      --arg hash "$pkg_hash" \
+      '. + { ($sys): { "url": $url, "hash": $hash } }')
+  fi
+done
 
 TMP_FILE="${RELEASE_FILE}.tmp"
-jq \
+jq -n \
   --arg ver "$LATEST_VERSION" \
-  --arg amd_url "$AMD64_URL" \
-  --arg amd_hash "$AMD64_SRI_HASH" \
-  --arg arm_url "$ARM64_URL" \
-  --arg arm_hash "$ARM64_SRI_HASH" \
-  '
-  .version = $ver
-  | .systems["x86_64-linux"].url = $amd_url
-  | .systems["x86_64-linux"].hash = $amd_hash
-  | .systems["aarch64-linux"].url = $arm_url
-  | .systems["aarch64-linux"].hash = $arm_hash
-  ' "$RELEASE_FILE" > "$TMP_FILE"
+  --argjson systems "$SYSTEMS_JSON" \
+  '{ version: $ver, systems: $systems }' > "$TMP_FILE"
 mv "$TMP_FILE" "$RELEASE_FILE"
 
-# Evaluate flake structure without building the unfree package
 nix flake show --json >/dev/null
 
-TAG_NAME="${TAG_PREFIX}${LATEST_VERSION}"
+CLEAN_VERSION="${LATEST_VERSION#v}"
+if [[ "$TAG_PREFIX" == *v ]] && [[ "$CLEAN_VERSION" == v* ]]; then
+  TAG_NAME="${TAG_PREFIX}${CLEAN_VERSION#v}"
+else
+  TAG_NAME="${TAG_PREFIX}${CLEAN_VERSION}"
+fi
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
