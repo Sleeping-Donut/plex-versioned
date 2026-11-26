@@ -32,34 +32,32 @@ Versioned Plex Media Server flake driven by `plex-release.json` and a manual Git
 
 ### 2. Enable `services.plex`
 
-With `allowUnfree = true`:
-
-```nix
-{ pkgs, plex-versioned, ... }:
-{
-  nixpkgs.config.allowUnfree = true;
-
-  services.plex = {
-    enable = true;
-    package = plex-versioned.packages.${pkgs.stdenv.hostPlatform.system}.plex;
-  };
-}
-```
-
-Or with `allowUnfreePredicate`:
+Use `lib.mkPlex` and pass your own `pkgs`, so the package is evaluated inside
+your nixpkgs instance and your unfree policy applies:
 
 ```nix
 { lib, pkgs, plex-versioned, ... }:
 {
-  nixpkgs.config.allowUnfreePredicate = pkg:
-    builtins.elem (lib.getName pkg) [
-      "plexmediaserver"
-    ];
+  nixpkgs.config.allowUnfreePredicate =
+    pkg: builtins.elem (lib.getName pkg) [ "plexmediaserver" ];
 
   services.plex = {
     enable = true;
-    package = plex-versioned.packages.${pkgs.stdenv.hostPlatform.system}.plex;
+    package = plex-versioned.lib.mkPlex { inherit pkgs; };
   };
 }
 ```
+
+`allowUnfree = true` works just as well if you already allow unfree globally.
+
+### Why not `packages.${system}.plex`?
+
+The `packages` output is built with this flake's own `import nixpkgs`. Plex is
+unfree, so it is only usable where this flake's predicate applies — i.e. inside
+this repo, or with `NIXPKGS_ALLOW_UNFREE=1 --impure`. A predicate set in the
+consuming configuration cannot reach it, because nixpkgs bakes the unfree check
+into the derivation when the package is evaluated, not when it is used.
+
+`inputs.nixpkgs.follows = "nixpkgs"` does not change this: it pins the nixpkgs
+source, not its configuration.
 
