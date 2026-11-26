@@ -10,9 +10,19 @@
       release = builtins.fromJSON (builtins.readFile ./plex-release.json);
       supportedSystems = builtins.attrNames release.systems;
 
+      # Only applies to this flake's `packages` output. Consumers using
+      # `lib.mkPlex` are governed by their own nixpkgs config.
+      mkPkgs =
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnfreePredicate =
+            pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "plexmediaserver" ];
+        };
+
       forAllSystems = f:
         nixpkgs.lib.genAttrs supportedSystems (system:
-          f system (import nixpkgs { inherit system; })
+          f system (mkPkgs system)
         );
     in
     {
