@@ -1,34 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_FILE="${RELEASE_FILE:-plex-release.json}"
-API_URL="${API_URL:-https://plex.tv/api/downloads/5.json?channel=plexpass}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./common.sh
+source "${SCRIPT_DIR}/common.sh"
+
 TAG_PREFIX="${TAG_PREFIX:-}"
 
-if [ -z "${PLEX_TOKEN:-}" ]; then
-  echo "Error: PLEX_TOKEN environment variable is required." >&2
-  exit 1
-fi
-
-for cmd in curl jq nix nix-prefetch-url git; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Error: Required command '$cmd' not found in PATH." >&2
-    exit 1
-  fi
-done
+require_api_env
+require_cmds curl jq nix nix-prefetch-url git
 
 if [ ! -f "$RELEASE_FILE" ]; then
   printf '{"version":"","systems":{}}\n' > "$RELEASE_FILE"
 fi
 
-CURRENT_VERSION=$(jq -r '.version // ""' "$RELEASE_FILE")
+CURRENT_VERSION=$(current_version)
 
-API_JSON=$(curl -fsSL \
-  -H "X-Plex-Token: ${PLEX_TOKEN}" \
-  -H "Accept: application/json" \
-  "$API_URL")
+API_JSON=$(fetch_api_json)
 
-LATEST_VERSION=$(printf '%s' "$API_JSON" | jq -r '.computer.Linux.version // empty')
+LATEST_VERSION=$(latest_version "$API_JSON")
 
 if [ -z "$LATEST_VERSION" ]; then
   echo "Error: Could not read .computer.Linux.version from Plex API response." >&2

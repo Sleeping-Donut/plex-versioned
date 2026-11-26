@@ -8,13 +8,31 @@ on:
         required: false
         default: "v"
 
-permissions:
-  contents: write
-
 jobs:
-  update-plex:
+  check:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compare pinned version against the Plex API
+        id: check
+        env:
+          PLEX_TOKEN: ${{ secrets.PLEX_TOKEN }}
+        run: ./scripts/check-plex-release.sh
+
+  update:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,4 +47,3 @@ jobs:
           PLEX_TOKEN: ${{ secrets.PLEX_TOKEN }}
           TAG_PREFIX: ${{ inputs.tag_prefix }}
         run: ./scripts/update-plex-release.sh
-
