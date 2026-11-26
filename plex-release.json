@@ -1,21 +1,21 @@
 {
-  "version": "1.43.5.11079-b3b13e506",
+  "version": "1.43.6.11212-fa660d0cd",
   "systems": {
     "x86_64-linux": {
-      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.5.11079-b3b13e506/debian/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb",
-      "hash": "sha256-dOmnHJfgbW6SXMQ5gnkUH9g47p30RvkOdpYU+iyHogY="
+      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.6.11212-fa660d0cd/debian/plexmediaserver_1.43.6.11212-fa660d0cd_amd64.deb",
+      "hash": "sha256-v/zGZdP500Gre0YRDyZnDFbRvN8oA2pw0ehMMx/h22U="
     },
     "aarch64-linux": {
-      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.5.11079-b3b13e506/debian/plexmediaserver_1.43.5.11079-b3b13e506_arm64.deb",
-      "hash": "sha256-ivNrF/iG40QUCotH5OLvZT8xx4bS6qc4dEL1tgYgBxc="
+      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.6.11212-fa660d0cd/debian/plexmediaserver_1.43.6.11212-fa660d0cd_arm64.deb",
+      "hash": "sha256-XKA2ZOkXohs2pQ0HN2YqMVPQrTit/CSMWh3cxRMN2HA="
     },
     "armv7l-linux": {
-      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.5.11079-b3b13e506/debian/plexmediaserver_1.43.5.11079-b3b13e506_armhf.deb",
-      "hash": "sha256-c9HLyjUcR9uT11+ZbJ6pEleuBNodCjwt03rYJvfId0c="
+      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.6.11212-fa660d0cd/debian/plexmediaserver_1.43.6.11212-fa660d0cd_armhf.deb",
+      "hash": "sha256-1FWiL/tNu9QMB6WU0/6ti8ZhAxxtmKCg1LjjDXo/7vU="
     },
     "i686-linux": {
-      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.5.11079-b3b13e506/debian/plexmediaserver_1.43.5.11079-b3b13e506_i386.deb",
-      "hash": "sha256-nnptnS57QiRSvcNDOXv8KQuD9QAdSSfbtl4F1vkry+I="
+      "url": "https://downloads.plex.tv/plex-media-server-new/1.43.6.11212-fa660d0cd/debian/plexmediaserver_1.43.6.11212-fa660d0cd_i386.deb",
+      "hash": "sha256-uJMZ64pTLvC1c+ZPaBe85KkGQLngmtYF3RFnJJ9Je6Q="
     }
   }
 }
